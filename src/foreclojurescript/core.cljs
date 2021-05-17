@@ -1,5 +1,5 @@
 (ns foreclojurescript.core
-  (:require [cljs.js]))
+  (:require [sci.core :as sci]))
 
 (def problems
      [
@@ -180,10 +180,10 @@
        :description "Write a function which returns the last element in a sequence."
        :tags ["easy" "seqs" "core-functions"]
        :approved true
-       :placeholder "(fn last [l] 0)"
-       :tests ["(= (__ [1 2 3 4 5]) 5)"
-               "(= (__ '(5 4 3)) 3)"
-               "(= (__ [\"b\" \"c\" \"d\"]) \"d\")"]}
+       :placeholder "(fn lasto [l] 0)"
+       :tests ["(= (lasto [1 2 3 4 5]) 5)"
+               "(= (lasto '(5 4 3)) 3)"
+               "(= (lasto [\"b\" \"c\" \"d\"]) \"d\")"]}
       
       {:_id 20
        :title "Penultimate Element"
@@ -448,39 +448,43 @@
   (render-tests problem))
 
 
-(defn run-test
-  [testcase cb]   
-  (cljs.js/eval-str
-   (cljs.js/empty-state)
-   testcase
-   nil
-   {:eval cljs.js/js-eval :context :statement}
-   cb))
-
-
 (defn render-test-result
-  [parentElement test]
-  (fn [result]
-    (let
-        [element (.createElement js/document "pre")]
-      (set! (.-innerHTML element)
-            (cond
-              (contains? result :error) (ex-message (ex-cause (:error result)))
-              (true? (:value result)) (str "PASS: " test)
-              (false? (:value result)) (str "FAIL: " test)
-              :else (str "UNKNOWN" result)))
-      (.appendChild testsElement element))))
+  [parentElement test result]
+  (let
+      [element (.createElement js/document "pre")]
+    (set! (.-innerHTML element)
+          (cond
+;;            (contains? result :error) (ex-message (ex-cause (:error result)))
+            (true?  result) (str "PASS: " test)
+            (false? result) (str "FAIL: " test)
+            :else (str test ": Error: " (ex-message result)
+                       "(line:" (:line (ex-data result)) ","
+                       "column:" (:column (ex-data result)) ")")))
+    (.appendChild testsElement element)))
 
 (defn run-tests
   [problem solution]
+  (map (fn [test]
+         {:test test
+          :result (try
+                    (sci/eval-string
+                     (clojure.string/replace test "__" solution)
+                     {:deny (map keyword (:restricted problem))
+                      :source solution
+                      })
+                     )
+                    (catch :default e e))})
+       (:tests problem)))
+
+(defn run
+  [problem solution]
   (set! (.-innerHTML testsElement) "")
-  (doseq [test (:tests problem)]
-    (let
-        [test-element (.createElement js/document "li")
-         testcase (clojure.string/replace test "__" solution)]
-      (update-progress! (set-problem-solution (:_id problem) solution))
-      (run-test testcase
-                (render-test-result testsElement testcase)))))
+  (let [test-results (run-tests problem solution)]
+    (doseq [result test-results]
+      (let
+          [test-element (.createElement js/document "li")]
+        (update-progress! (set-problem-solution (:_id problem) solution))
+        (render-test-result testsElement (:test result) (:result result))))))
 
 (defn load-problem!
  [id]
@@ -511,7 +515,7 @@
   (.addEventListener 
    button "click"
    (fn [evt]
-     (run-tests cur-problem (.-value codeElement))
+     (run cur-problem (.-value codeElement))
      (.preventDefault evt)))
   (.addEventListener 
    (.getElementById js/document "prev")
