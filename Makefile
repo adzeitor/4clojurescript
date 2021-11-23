@@ -9,8 +9,5 @@ gh_pages:
 	@echo "COMPILING..."
 	clj -m cljs.main --output-to main.js --optimizations advanced -c foreclojurescript.core
 	git add main.js
-	git commit -m 'Generate gh-pages'
-	git push --force
+	git commit --amend -m 'Generate gh-pages'
 	git checkout -
-	@echo "======================================================="
-	@echo "DEPLOYED TO: https://adzeitor.github.io/4clojurescript/"
